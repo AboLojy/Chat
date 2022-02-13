@@ -1,0 +1,67 @@
+# Welcome to Serverless!
+#
+# This file is the main config file for your service.
+# It's very minimal at this point and uses default values.
+# You can always add more config options for more control.
+# We've included some commented out config examples here.
+# Just uncomment any of them to get that config option.
+#
+# For full config options, check the docs:
+#    docs.serverless.com
+#
+# Happy Coding!
+
+service: serverless
+# app and org for use with dashboard.serverless.com
+app: chat-app
+#org: your-org-name
+
+# You can pin your service to only deploy with a specific Serverless version
+# Check out our docs for more details
+frameworkVersion: '3'
+custom:
+  stage: ${opt:stage, 'dev'}
+
+
+provider:
+  name: aws
+  runtime: nodejs14.x
+  websocketsApiRouteSelectionExpression: $request.body.action
+  environment:
+    APIG_ENDPOINT:
+      Fn::Join:
+        - ''
+        - - Ref: WebsocketsApi
+          - .execute-api.
+          - Ref: AWS::Region
+          - .amazonaws.com/
+          - ${self:custom.stage}
+  
+
+functions:
+  authorizer:
+    handler: src/authorizer.handler
+
+  websocket:
+    handler: src/websocket.handler
+    events:
+      - websocket:
+          # Handles new connection requests
+          route: $connect
+          authorizer:
+            name: authorizer
+            identitySource:
+              - 'route.request.querystring.auth'
+
+
+      - websocket:
+          # Handles all unrouted messages
+          route: $default
+
+      - websocket:
+          # Handles disconnect messages
+          route: $disconnect
+      - websocket:
+          route: sendMsg
+      - websocket:
+          route: setName
